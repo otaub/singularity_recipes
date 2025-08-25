@@ -1,0 +1,60 @@
+Bootstrap: localimage
+From: ../base/rockylinux9.3_cuda12.4_python3.11_torch2.5.sif
+
+%post
+    cp /usr/bin/true /usr/sbin/useradd
+    cp /usr/bin/true /usr/sbin/groupadd
+
+    dnf -y install libaio-devel
+    dnf -y install cmake
+    dnf -y install kalign
+    dnf -y install hhsuite
+    dnf -y install hmmer
+    # dnf -y install
+    
+    pip install setuptools==59.5.0
+    pip install "openmm[cuda12]" pandas PyYAML requests scipy tqdm typing-extensions wandb modelcif==0.7 awscli ml-collections 
+    pip install git+https://github.com/openmm/pdbfixer.git
+    pip install dm-tree==0.1.6
+    pip install git+https://github.com/NVIDIA/dllogger.git
+
+    # deepspeed
+	pip install deepspeed-kernels
+	TORCH_CUDA_ARCH_LIST="7.0;8.0" DS_BUILD_OPS=1 \
+	                      DS_BUILD_EVOFORMER_ATTN=1 DS_BUILD_SPARSE_ATTN=0 DS_BUILD_CCL_COMM=0 \
+	                      pip3 install deepspeed --no-cache-dir
+	  sed -i 's/hostname -I/hostname -s/g' /usr/local/lib64/${PYVER}/site-packages/deepspeed/comm/comm.py
+    # flash-attn
+	pip install flash-attn --no-build-isolation
+
+    cd /opt
+	git clone https://github.com/aqlaboratory/openfold.git
+
+    # relevant content of third party dependencies script
+    cd openfold
+    # Download folding resources
+    wget -N --no-check-certificate -P openfold/resources \
+        https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
+    
+    # Certain tests need access to this file
+    mkdir -p tests/test_data/alphafold/common
+    ln -rs openfold/resources/stereo_chemical_props.txt tests/test_data/alphafold/common
+    
+    # Decompress test data
+    gunzip -c tests/test_data/sample_feats.pickle.gz > tests/test_data/sample_feats.pickle
+
+    python setup.py install
+
+    # cutlass
+    cd /opt
+
+    git clone https://github.com/NVIDIA/cutlass --branch v3.6.0 --depth 1
+
+	pip cache purge
+	dnf clean all
+
+
+%environment
+    # This setting is used to fix a worker assignment issue during data loading
+    export KMP_AFFINITY=none
+    export CUTLASS_PATH=/opt/cutlass
