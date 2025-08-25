@@ -1,0 +1,92 @@
+Bootstrap: docker
+From: rockylinux:9.3
+
+%post
+
+
+  PYVER=python3.10
+  export MAKEFLAGS="-j$(nproc)"
+
+  # Enable powertools
+  dnf install -y dnf-plugins-core
+  dnf config-manager --set-enabled crb
+  dnf install -y epel-release
+  dnf group install -y "Development Tools"
+  echo $CC
+  echo $PATH
+  gcc --version
+
+  # Upgrade packages to most recent versions
+  dnf -y upgrade
+
+  # # Install additional packages
+  dnf install -y which wget patch git openssl-devel libffi-devel
+  cd /opt
+  wget https://www.python.org/ftp/python/3.10.18/Python-3.10.18.tgz
+  tar -xzvf Python-3.10.18.tgz
+  cd Python-3.10.18
+  ./configure --enable-optimizations
+  make -j 4
+  make altinstall
+
+
+  # Make "python" and "pip" commands work
+  alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.10 1
+  alternatives --install /usr/bin/python python /usr/bin/python3 1
+  alternatives --install /usr/bin/pip3 pip3 /usr/local/bin/pip3.10 1
+  alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+  # Upgrade pip
+  pip install --upgrade pip
+
+  # Install CUDA, CUDNN, NCCL
+  dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+  dnf module enable -y nvidia-driver:latest-dkms
+  dnf install -y cuda-drivers
+  dnf -y install cuda-12-4 libnccl libnccl-devel libnccl-static libcudnn9-cuda-12 libcudnn9-devel-cuda-12
+
+  # Install Python packages
+  pip install numpy==1.26.4
+  pip install "jax[cuda12]"
+  pip install flax==0.9.0
+  pip install pyrosetta-installer
+  pip install pandas matplotlib biopython scipy seaborn tqdm jupyter ffmpeg fsspec py3dmol chex dm-haiku  dm-tree joblib ml-collections immutabledict optax
+
+  python -c "import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()"
+  # install pdbfixer from source
+  cd /opt
+  git clone https://github.com/openmm/pdbfixer.git
+  cd pdbfixer
+  python setup.py install
+
+  pip install git+https://github.com/sokrypton/ColabDesign.git --no-deps
+
+  # BindCraft
+  cd /opt
+  git clone https://github.com/martinpacesa/BindCraft
+
+  params_dir=/opt/BindCraft/params
+  params_file="${params_dir}/alphafold_params_2022-12-06.tar"
+
+  # download AF2 weights
+  mkdir -p "${params_dir}"
+  wget -O "${params_file}" "https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar"
+  
+  # extract AF2 weights
+  tar tf "${params_file}"
+  tar -xvf "${params_file}" -C "${params_dir}"
+  rm "${params_file}"
+
+  # chmod executables
+  echo -e "Changing permissions for executables\n"
+  chmod +x "/opt/BindCraft/functions/dssp"
+  chmod +x "/opt/BindCraft/functions/DAlphaBall.gcc"
+
+  # clean up
+  pip cache purge
+  dnf clean all
+
+%environment
+  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib64:$OMPI_DIR/lib64:/usr/local/lib/python3.11/site-packages/faiss:$LD_LIBRARY_PATH
+  export LIBRARY_PATH=  # added 8.1.2025 as modules in host may set this which confuses compilations
+  export PATH=$PATH:/root/.local/bin
