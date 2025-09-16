@@ -15,9 +15,19 @@ From: rockylinux:9.3
 
   # CUDA
   dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
-  dnf -y module enable nvidia-driver:latest-dkms
-  dnf -y install cuda-drivers
-  dnf -y install cuda-12-4 libnccl libnccl-devel libnccl-static libcudnn9-cuda-12 libcudnn9-devel-cuda-12
+  # dnf -y module enable nvidia-driver:latest-dkms
+  # dnf -y install cuda-drivers
+  dnf -y module install nvidia-driver:570
+  # dnf -y install cuda-12-6 libnccl libnccl-devel libnccl-static libcudnn9-cuda-12 libcudnn9-devel-cuda-12
+  # dnf -y install cuda-12-6
+  # dnf -y install libcudnn9-cuda-12
+  # dnf -y install libcudnn9-devel-cuda-12
+  # dnf -y install libcusparselt0
+  # dnf -y install libnccl{,-devel,-static}-2.23.4-1+cuda12.6
+  
+  dnf clean all
+  
+  nvidia-smi
 
   wget -P /opt \
   "https://github.com/conda-forge/miniforge/releases/download/23.3.1-1/Miniforge3-Linux-x86_64.sh" \
@@ -65,10 +75,12 @@ From: rockylinux:9.3
   
   conda run -n AIzymes pip install transformers fair-esm
   conda install -n AIzymes conda-forge::ambertools
+  conda run -n AIzymes pip install bqplot
   
 
 %environment
   export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib64:$OMPI_DIR/lib64:$LD_LIBRARY_PATH
   export LIBRARY_PATH=  # added 8.1.2025 as modules in host may set this which confuses compilations
   export PATH=$PATH:/root/.local/bin
+  export PATH=$PATH:/opt/conda/bin
   export PYTHONPATH=$PYTHONPATH:/opt/AIzymes/src/aizymes
