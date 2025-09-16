@@ -22,7 +22,8 @@ From: rockylinux:9.3
   # CUDA
   dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
   dnf -y module enable nvidia-driver:latest-dkms
-  dnf -y install cuda-drivers
+  dnf -y module install nvidia-driver:570
+  # dnf -y install cuda-drivers
   dnf -y install cuda-12-4 libnccl libnccl-devel libnccl-static libcudnn9-cuda-12 libcudnn9-devel-cuda-12
 
   pip install wheel
