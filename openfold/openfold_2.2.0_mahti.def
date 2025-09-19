@@ -19,14 +19,15 @@ From: rockylinux/rockylinux:8.10
 
   # CUDA
   dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
-  dnf -y module install nvidia-driver:560
-  dnf -y install cuda-12-6 \
-  libcudnn9-cuda-12 libcudnn9-devel-cuda-12 libcusparselt0 \
-  libnccl{,-devel,-static}-2.23.4-1+cuda12.6
+  dnf -y module install nvidia-driver:535
+  # dnf -y install cuda-12-4
+  # dnf -y install cuda-12-4 \
+  # libcudnn9-cuda-12 libcudnn9-devel-cuda-12 libcusparselt0 \
+  # libnccl{,-devel,-static}-2.23.4-1+cuda12.4
 
   dnf clean all
   
-  nvidia-smi
+  # nvidia-smi
 
   wget -P /opt \
   "https://github.com/conda-forge/miniforge/releases/download/23.3.1-1/Miniforge3-Linux-x86_64.sh" \
@@ -42,6 +43,7 @@ From: rockylinux/rockylinux:8.10
 
   wget -q -P /opt/openfold/openfold/resources \
   https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
+  cd /opt/openfold
   conda run -n base python setup.py install
 
 %environment
