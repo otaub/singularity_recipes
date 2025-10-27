@@ -1,6 +1,9 @@
 Bootstrap: docker
 From: rockylinux/rockylinux:8.10
 
+%setup
+  cp /media/volume/Projects/singularity_recipes/openfold/setup_mahti.py $APPTAINER_ROOTFS/opt
+
 %post
   cp /usr/bin/true /usr/sbin/useradd
   cp /usr/bin/true /usr/sbin/groupadd
@@ -18,12 +21,15 @@ From: rockylinux/rockylinux:8.10
   dnf -y install libxml2
 
   # CUDA
-  dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
-  dnf -y module install nvidia-driver:535
-  # dnf -y install cuda-12-4
+  # dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
+  # dnf -y module install nvidia-driver:560
   # dnf -y install cuda-12-4 \
   # libcudnn9-cuda-12 libcudnn9-devel-cuda-12 libcusparselt0 \
-  # libnccl{,-devel,-static}-2.23.4-1+cuda12.4
+  # libnccl{,-devel,-static}-2.23.4-1+cuda12.6
+
+  dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
+  dnf -y module install nvidia-driver:560
+  dnf -y install cuda-12-4 libnccl libnccl-devel libnccl-static libcudnn9-cuda-12 libcudnn9-devel-cuda-12
 
   dnf clean all
   
@@ -44,7 +50,8 @@ From: rockylinux/rockylinux:8.10
   wget -q -P /opt/openfold/openfold/resources \
   https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
   cd /opt/openfold
-  conda run -n base python setup.py install
+  cp /opt/setup_mahti.py /opt/openfold
+  conda run -n base python setup_mahti.py install
 
 %environment
   export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib64:$OMPI_DIR/lib64:$LD_LIBRARY_PATH
