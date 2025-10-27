@@ -75,7 +75,9 @@ From: rockylinux:9.3
   
   conda run -n AIzymes pip install transformers fair-esm
   conda install -n AIzymes conda-forge::ambertools
+  # missing from the environment file
   conda run -n AIzymes pip install bqplot
+  conda run -n AIzymes pip install py3Dmol
   
 
 %environment
