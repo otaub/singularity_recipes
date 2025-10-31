@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: rockylinux/rockylinux:8.10
+From: rockylinux/rockylinux:9.3
 
 %setup
   cp /media/volume/Projects/singularity_recipes/openfold/setup_mahti.py $APPTAINER_ROOTFS/opt
@@ -9,7 +9,8 @@ From: rockylinux/rockylinux:8.10
   cp /usr/bin/true /usr/sbin/groupadd
 
   dnf -y install dnf-plugins-core
-  dnf config-manager --set-enabled powertools
+  # dnf config-manager --set-enabled powertools
+  dnf config-manager --set-enabled crb
   dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
   dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm
 
@@ -21,8 +22,9 @@ From: rockylinux/rockylinux:8.10
   dnf -y install libxml2
 
   # CUDA
-  # dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
-  # dnf -y module install nvidia-driver:560
+  dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+  dnf -y module install nvidia-driver:535
+  # dnf -y install cuda-12-4
   # dnf -y install cuda-12-4 \
   # libcudnn9-cuda-12 libcudnn9-devel-cuda-12 libcusparselt0 \
   # libnccl{,-devel,-static}-2.23.4-1+cuda12.6
