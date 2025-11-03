@@ -1,0 +1,169 @@
+Bootstrap: docker
+From: rocm/pytorch:rocm6.2.3_ubuntu22.04_py3.10_pytorch_release_2.3.0
+#From: rocm/pytorch:rocm6.2.2_ubuntu20.04_py3.9_pytorch_release_2.2.1   # org base container 
+
+%files
+    nocuda_setup.py /opt/nocuda_setup.py
+    amd_attention_core.py /opt/attention_core.py
+    amd_structure_module.py /opt/structure_module.py
+
+%post
+    apt-get update
+    apt-get install -y apt-transport-https
+    apt-get install -y \
+        build-essential \
+        wget \
+        git \
+        libxml2 \
+        aria2 \
+        gcc \
+        g++ \
+        doxygen \
+        autoconf \
+        rccl \
+        liblapack-dev \
+        libopenblas-dev
+    rm -rf /var/lib/apt/lists/*
+    apt-get autoremove -y
+    apt-get clean
+    
+
+    # ROCm environment
+    export ROCM_RELEASE=6.2.3
+    export ROCM_PATH=/opt/rocm-$ROCM_RELEASE
+    export PATH=$ROCM_PATH/bin:$ROCM_PATH/llvm/bin:$PATH
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ROCM_PATH/lib
+
+    # Mark RCCL as non-debug
+    export RCCL_DEBUG=0
+    export HIP_PLATFORM=amd
+    export PYTORCH_ROCM_ARCH=gfx90a
+
+    # added AWS CLI here 
+    pip install --no-cache-dir \
+        biopython==1.79 \
+	"scipy<=1.15.0" \
+        modelcif==0.7 \
+        swig>=3.0.5 \
+        ml-collections \
+        dm-tree \
+        pytorch-lightning \
+        deepspeed==0.16.0 \
+	numpy==1.23.5 \
+        pandas \
+        PyYAML \
+        requests \
+        tqdm \
+        typing-extensions \
+        wandb \
+        awscli==1.33.44 
+        
+    # Install HMMER
+    mkdir -p /opt
+    cd /opt
+    wget http://eddylab.org/software/hmmer/hmmer-3.3.2.tar.gz
+    tar -xzf hmmer-3.3.2.tar.gz
+    cd hmmer-3.3.2
+    ./configure
+    make -j4
+    make install
+    cd /opt
+    rm -rf hmmer-3.3.2 hmmer-3.3.2.tar.gz
+
+    # Install Kalign2
+    mkdir -p /opt
+    cd /opt
+    mkdir kalign2
+    cd kalign2
+    wget http://msa.sbc.su.se/downloads/kalign/current.tar.gz
+    tar -xzf current.tar.gz
+    ./configure
+    make
+    make install
+    cd /opt
+    rm -rf kalign2
+
+    # Install MMseqs2
+    mkdir -p /opt
+    cd /opt
+    #git clone https://github.com/soedinglab/MMseqs2.git
+    #cd MMseqs2
+    #mkdir build
+    #cd build
+    #cmake -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=/usr/local ..
+    #make -j4
+    #make install
+    #cd /opt
+    #rm -rf MMseqs2
+    
+    # Install binaries instead of building from source
+    wget https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz && \
+    tar xvfz mmseqs-linux-avx2.tar.gz && \
+    rm mmseqs-linux-avx2.tar.gz
+    export PATH="/opt/mmseqs/bin:${PATH}"
+
+    # Install pdbfixer
+    mkdir -p /opt
+    cd /opt
+    wget https://github.com/openmm/pdbfixer/archive/refs/tags/1.9.tar.gz
+    tar xzvf 1.9.tar.gz
+    rm 1.9.tar.gz
+    cd pdbfixer-1.9
+    python setup.py install
+
+    # HHSUITE
+    mkdir -p /opt
+    cd /opt
+    mkdir /opt/hhsuite
+    cd /opt/hhsuite
+    wget https://github.com/soedinglab/hh-suite/releases/download/v3.3.0/hhsuite-3.3.0-SSE2-Linux.tar.gz
+    tar xvfz hhsuite-3.3.0-SSE2-Linux.tar.gz
+    rm hhsuite-3.3.0-SSE2-Linux.tar.gz
+
+    # OpenMM
+    conda install -y -c conda-forge -c bioconda streamhpc::openmm-hip
+
+    # AWS CLI (not used, instead done through pip)
+    #curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+    #unzip /tmp/awscliv2.zip -d /tmp
+    #/tmp/aws/install --install-dir /opt/aws-cli --bin-dir /opt/openfold_venv/bin
+    #rm -rf /tmp/aws /tmp/awscliv2.zip
+
+    # Install OpenFold     
+     mkdir -p /opt/openfold
+     cd /opt
+     git clone --branch v1.0.1 --single-branch https://github.com/aqlaboratory/openfold.git   # v1.0.1
+     ls
+     cd /opt/openfold
+     
+     mv /opt/nocuda_setup.py /opt/openfold/nocuda_setup.py
+     #python /opt/openfold/nocuda_setup.py install
+     python /opt/openfold/nocuda_setup.py develop # Use editable installation mode
+     sed -i 's/deepspeed.utils.is_initialized/deepspeed.comm.is_initialized/g' /opt/openfold/openfold/model/primitives.py   # modify deepspeed import in primitives.py to match the installed deepspeed version     
+     mv /opt/attention_core.py /opt/openfold/openfold/utils/kernel/attention_core.py
+     mv /opt/structure_module.py /opt/openfold/openfold/model/structure_module.py
+     chmod 777 /opt/openfold/openfold/utils/kernel/attention_core.py
+     chmod 777 /opt/openfold/openfold/model/structure_module.py
+
+    # Download folding resources
+    curl --insecure https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt -o openfold/resources/stereo_chemical_props.txt
+    mkdir -p tests/test_data/alphafold/common
+    ln -rs openfold/resources/stereo_chemical_props.txt tests/test_data/alphafold/common
+
+%environment
+    export ROCM_RELEASE=6.2.3
+    export ROCM_PATH=/opt/rocm-$ROCM_RELEASE
+    export PATH=/opt/openfold_venv/bin:$ROCM_PATH/bin:$ROCM_PATH/llvm/bin:/opt/hhsuite/bin:/opt/hhsuite/scripts:$PATH
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ROCM_PATH/lib
+    export RCCL_DEBUG=0
+    export HIP_PLATFORM=amd
+    export PYTORCH_ROCM_ARCH=gfx90a
+    export MY_VAR=hello
+
+%runscript
+    cd /opt/openfold
+    exec /opt/openfold_venv/bin/python /opt/openfold/scripts/run_inference.py "$@"
+
+%startscript
+    cd /opt/openfold
+    exec /bin/bash "$@"
